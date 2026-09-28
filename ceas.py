@@ -5,9 +5,11 @@ Ceas Mare - ceas pe tot ecranul, afișat/ascuns cu o tastă (Windows).
 - Apasă din nou aceeași tastă (sau Esc, sau click) -> ceasul dispare.
 - Ctrl + tasta -> închide programul.
 - Ora este sincronizată de pe internet (NTP), cu rezervă prin HTTP.
+- Sub dată apare țara (din setarea de regiune a Windows), în culorile steagului ei.
 
 Rulare:   pythonw ceas.py            (tasta implicită F9)
           pythonw ceas.py --tasta F8 (altă tastă: F1..F24, A..Z, 0..9)
+          pythonw ceas.py --tara IT  (altă țară decât cea din Windows, cod din 2 litere)
 Nu are nevoie de biblioteci externe (doar Python 3 standard).
 """
 
@@ -27,7 +29,7 @@ import urllib.request
 # ----------------------------------------------------------------------------
 # Setări
 # ----------------------------------------------------------------------------
-VERSIUNE = "1.3"
+VERSIUNE = "1.4"
 TASTA_IMPLICITA = "F9"
 FORMAT_24H = True  # True: ora 00..23 (plus AM/PM); False: ora 01..12 (plus AM/PM)
 INTERVAL_SINCRONIZARE = 10 * 60  # secunde între sincronizări cu internetul
@@ -51,6 +53,171 @@ LUMINOZITATE = 0.62
 ZILE = ["luni", "marți", "miercuri", "joi", "vineri", "sâmbătă", "duminică"]
 LUNI = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie", "iulie",
         "august", "septembrie", "octombrie", "noiembrie", "decembrie"]
+
+# Țara utilizatorului, în culorile steagului național. Culorile sunt fixe (nu se
+# schimbă cu ora) și se aplică pe litere, în benzi, în ordinea de pe steag.
+ARATA_TARA = True  # False: nu se afișează țara
+CONTRAST_MINIM = 4.5  # culorile prea închise (negru, bleumarin) se deschid până la acest contrast pe negru
+
+# cod ISO din 2 litere -> (numele în română, culorile steagului)
+TARI = {
+    "RO": ("România", ["#002B7F", "#FCD116", "#CE1126"]),
+    "MD": ("Republica Moldova", ["#0046AE", "#FFD200", "#CC092F"]),
+    "DE": ("Germania", ["#000000", "#DD0000", "#FFCE00"]),
+    "FR": ("Franța", ["#002654", "#FFFFFF", "#ED2939"]),
+    "IT": ("Italia", ["#009246", "#FFFFFF", "#CE2B37"]),
+    "ES": ("Spania", ["#AA151B", "#F1BF00", "#AA151B"]),
+    "PT": ("Portugalia", ["#046A38", "#DA291C"]),
+    "GB": ("Regatul Unit", ["#012169", "#FFFFFF", "#C8102E"]),
+    "IE": ("Irlanda", ["#169B62", "#FFFFFF", "#FF883E"]),
+    "NL": ("Țările de Jos", ["#AE1C28", "#FFFFFF", "#21468B"]),
+    "BE": ("Belgia", ["#000000", "#FDDA24", "#EF3340"]),
+    "LU": ("Luxemburg", ["#EF3340", "#FFFFFF", "#00A3E0"]),
+    "AT": ("Austria", ["#ED2939", "#FFFFFF", "#ED2939"]),
+    "CH": ("Elveția", ["#DA291C", "#FFFFFF", "#DA291C"]),
+    "LI": ("Liechtenstein", ["#002B7F", "#CE1126"]),
+    "MC": ("Monaco", ["#CE1126", "#FFFFFF"]),
+    "AD": ("Andorra", ["#10069F", "#FEDF00", "#D50032"]),
+    "SM": ("San Marino", ["#FFFFFF", "#5EB6E4"]),
+    "MT": ("Malta", ["#FFFFFF", "#CF142B"]),
+    "PL": ("Polonia", ["#FFFFFF", "#DC143C"]),
+    "CZ": ("Cehia", ["#11457E", "#FFFFFF", "#D7141A"]),
+    "SK": ("Slovacia", ["#FFFFFF", "#0B4EA2", "#EE1C25"]),
+    "HU": ("Ungaria", ["#CD2A3E", "#FFFFFF", "#436F4D"]),
+    "BG": ("Bulgaria", ["#FFFFFF", "#00966E", "#D62612"]),
+    "RS": ("Serbia", ["#C6363C", "#0C4076", "#FFFFFF"]),
+    "HR": ("Croația", ["#FF0000", "#FFFFFF", "#171796"]),
+    "SI": ("Slovenia", ["#FFFFFF", "#005DA4", "#ED1C24"]),
+    "BA": ("Bosnia și Herțegovina", ["#002395", "#FECB00", "#FFFFFF"]),
+    "ME": ("Muntenegru", ["#C40308", "#D3AE3B"]),
+    "MK": ("Macedonia de Nord", ["#D20000", "#FFE600"]),
+    "AL": ("Albania", ["#E41E20", "#000000"]),
+    "XK": ("Kosovo", ["#244AA5", "#D0A650"]),
+    "GR": ("Grecia", ["#0D5EAF", "#FFFFFF", "#0D5EAF", "#FFFFFF"]),
+    "CY": ("Cipru", ["#FFFFFF", "#D57800", "#4E5B31"]),
+    "TR": ("Turcia", ["#E30A17", "#FFFFFF"]),
+    "UA": ("Ucraina", ["#0057B7", "#FFD700"]),
+    "BY": ("Belarus", ["#C8313E", "#4AA657"]),
+    "RU": ("Rusia", ["#FFFFFF", "#0039A6", "#D52B1E"]),
+    "GE": ("Georgia", ["#FFFFFF", "#FF0000"]),
+    "AM": ("Armenia", ["#D90012", "#0033A0", "#F2A800"]),
+    "AZ": ("Azerbaidjan", ["#0092BC", "#E4002B", "#00AF66"]),
+    "KZ": ("Kazahstan", ["#00AFCA", "#FEC50C"]),
+    "LT": ("Lituania", ["#FDB913", "#006A44", "#C1272D"]),
+    "LV": ("Letonia", ["#9E3039", "#FFFFFF", "#9E3039"]),
+    "EE": ("Estonia", ["#0072CE", "#000000", "#FFFFFF"]),
+    "FI": ("Finlanda", ["#FFFFFF", "#002F6C", "#FFFFFF"]),
+    "SE": ("Suedia", ["#006AA7", "#FECC02", "#006AA7"]),
+    "NO": ("Norvegia", ["#BA0C2F", "#FFFFFF", "#00205B", "#FFFFFF", "#BA0C2F"]),
+    "DK": ("Danemarca", ["#C8102E", "#FFFFFF", "#C8102E"]),
+    "IS": ("Islanda", ["#02529C", "#FFFFFF", "#DC1E35", "#FFFFFF", "#02529C"]),
+    "US": ("Statele Unite", ["#B22234", "#FFFFFF", "#3C3B6E"]),
+    "CA": ("Canada", ["#D52B1E", "#FFFFFF", "#D52B1E"]),
+    "MX": ("Mexic", ["#006847", "#FFFFFF", "#CE1126"]),
+    "CU": ("Cuba", ["#002A8F", "#FFFFFF", "#CF142B"]),
+    "BR": ("Brazilia", ["#009C3B", "#FFDF00", "#002776"]),
+    "AR": ("Argentina", ["#74ACDF", "#FFFFFF", "#74ACDF"]),
+    "CL": ("Chile", ["#0039A6", "#FFFFFF", "#D52B1E"]),
+    "CO": ("Columbia", ["#FCD116", "#003893", "#CE1126"]),
+    "PE": ("Peru", ["#D91023", "#FFFFFF", "#D91023"]),
+    "VE": ("Venezuela", ["#FFCC00", "#00247D", "#CF142B"]),
+    "AU": ("Australia", ["#012169", "#FFFFFF", "#E4002B"]),
+    "NZ": ("Noua Zeelandă", ["#012169", "#FFFFFF", "#C8102E"]),
+    "JP": ("Japonia", ["#FFFFFF", "#BC002D", "#FFFFFF"]),
+    "CN": ("China", ["#EE1C25", "#FFFF00", "#EE1C25"]),
+    "KR": ("Coreea de Sud", ["#CD2E3A", "#FFFFFF", "#0047A0"]),
+    "IN": ("India", ["#FF9933", "#FFFFFF", "#138808"]),
+    "ID": ("Indonezia", ["#FF0000", "#FFFFFF"]),
+    "PH": ("Filipine", ["#0038A8", "#FFFFFF", "#CE1126"]),
+    "TH": ("Thailanda", ["#A51931", "#F4F5F8", "#2D2A4A", "#F4F5F8", "#A51931"]),
+    "VN": ("Vietnam", ["#DA251D", "#FFFF00"]),
+    "IL": ("Israel", ["#0038B8", "#FFFFFF", "#0038B8"]),
+    "EG": ("Egipt", ["#CE1126", "#FFFFFF", "#000000"]),
+    "MA": ("Maroc", ["#C1272D", "#006233"]),
+    "NG": ("Nigeria", ["#008751", "#FFFFFF", "#008751"]),
+    "ZA": ("Africa de Sud", ["#007A4D", "#FFB612", "#DE3831", "#002395"]),
+    "SA": ("Arabia Saudită", ["#006C35", "#FFFFFF"]),
+    "AE": ("Emiratele Arabe Unite", ["#00732F", "#FFFFFF", "#000000", "#FF0000"]),
+}
+
+
+def luminanta(culoare):
+    """Luminanța relativă (WCAG) a unei culori #RRGGBB."""
+    def canal(c):
+        c /= 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (int(culoare[i:i + 2], 16) for i in (1, 3, 5))
+    return 0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b)
+
+
+def lizibila_pe_negru(culoare, contrast=CONTRAST_MINIM):
+    """Deschide culoarea (păstrând nuanța) până se citește bine pe fundal negru."""
+    r, g, b = (int(culoare[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    for pas in range(101):
+        rr, gg, bb = colorsys.hls_to_rgb(h, l + (1 - l) * pas / 100, s)
+        c = f"#{round(rr * 255):02X}{round(gg * 255):02X}{round(bb * 255):02X}"
+        if (luminanta(c) + 0.05) / 0.05 >= contrast:
+            return c
+    return "#FFFFFF"
+
+
+def culori_litere(text, culori):
+    """Culoarea fiecărui caracter: literele sunt împărțite în benzi egale, câte una
+    pentru fiecare culoare a steagului (spațiile nu contează la împărțire)."""
+    culori = [lizibila_pe_negru(c) for c in culori]
+    litere = sum(1 for ch in text if not ch.isspace())
+    rezultat, i = [], 0
+    for ch in text:
+        if ch.isspace():
+            rezultat.append(culori[0])  # nu se vede, oricum
+            continue
+        if litere >= len(culori):
+            rezultat.append(culori[i * len(culori) // litere])
+        else:
+            rezultat.append(culori[i % len(culori)])
+        i += 1
+    return rezultat
+
+
+def tara_din_windows():
+    """(cod ISO, nume) pentru țara setată în Windows (Setări → Oră și limbă → Regiune).
+    Fără internet: se citește doar setarea locală. Întoarce (None, None) dacă nu se poate."""
+    try:
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        buf = ctypes.create_unicode_buffer(128)
+        cod = None
+        try:  # Windows 10 1709+
+            if k32.GetUserDefaultGeoName(buf, len(buf)) > 0:
+                cod = buf.value.upper()
+        except AttributeError:
+            pass
+        GEOCLASS_NATION, GEO_ISO2, GEO_FRIENDLYNAME = 16, 4, 8
+        geo = k32.GetUserGeoID(GEOCLASS_NATION)
+        if not cod or not cod.isalpha():  # „001” = „Lume”, adică nesetat
+            cod = None
+            if k32.GetGeoInfoW(geo, GEO_ISO2, buf, len(buf), 0) > 0:
+                cod = buf.value.upper()
+        nume = None
+        if k32.GetGeoInfoW(geo, GEO_FRIENDLYNAME, buf, len(buf), 0) > 0:
+            nume = buf.value
+        return (cod if cod and cod.isalpha() else None), nume
+    except Exception:
+        return None, None
+
+
+def tara_de_afisat(cod, nume_windows=None):
+    """(text, culori pe caracter) pentru afișare, sau None dacă nu știm țara."""
+    if cod and cod.upper() in TARI:
+        nume, culori = TARI[cod.upper()]
+    elif nume_windows:
+        nume, culori = nume_windows, [CULOARE_DATA]  # țară fără steag definit: gri
+    else:
+        return None
+    text = nume.upper()
+    return text, culori_litere(text, culori)
+
 
 def culoare_pentru(t, luminozitate=LUMINOZITATE, saturatie=SATURATIE):
     """Culoarea ceasului la momentul t (datetime).
@@ -225,7 +392,8 @@ class TastaGlobala(threading.Thread):
 # Fereastra ceasului
 # ----------------------------------------------------------------------------
 class CeasMare:
-    def __init__(self, radacina, sincronizare, coada, nume_tasta, cerere_iesire=None):
+    def __init__(self, radacina, sincronizare, coada, nume_tasta, cerere_iesire=None,
+                 tara=None):
         self.r = radacina
         self.cerere_iesire = cerere_iesire  # funcție: True dacă altă instanță ne cere să ieșim
         self.sinc = sincronizare
@@ -267,12 +435,25 @@ class CeasMare:
                                       font=("Segoe UI", -marime_data))
         self.eticheta_data.pack(pady=(int(marime_ora * 0.05), 0))
 
+        # țara: câte o etichetă pe literă, fiecare cu culoarea ei din steag
+        self.rand_tara = tk.Frame(cadru, bg=CULOARE_FUNDAL)
+        litere_tara = []
+        if tara:
+            text, culori = tara
+            font_tara = ("Segoe UI", -int(marime_data * 0.85), "bold")
+            for ch, culoare in zip(text, culori):
+                e = tk.Label(self.rand_tara, text=ch, fg=culoare, bg=CULOARE_FUNDAL,
+                             font=font_tara, bd=0, padx=0, pady=0, highlightthickness=0)
+                e.pack(side="left")
+                litere_tara.append(e)
+            self.rand_tara.pack(pady=(int(marime_ora * 0.06), 0))
+
         self.eticheta_stare = tk.Label(r, text="", fg=CULOARE_STARE, bg=CULOARE_FUNDAL,
                                        font=("Segoe UI", -marime_stare))
         self.eticheta_stare.place(relx=0.5, rely=0.97, anchor="s")
 
         for w in (r, cadru, rand, self.eticheta_ora, self.eticheta_ampm,
-                  self.eticheta_data, self.eticheta_stare):
+                  self.eticheta_data, self.eticheta_stare, self.rand_tara, *litere_tara):
             w.bind("<Button-1>", lambda e: self.ascunde())
         r.bind("<Escape>", lambda e: self.ascunde())
 
@@ -366,6 +547,8 @@ def main():
     parser = argparse.ArgumentParser(description="Ceas mare pe tot ecranul, la apăsarea unei taste.")
     parser.add_argument("--tasta", default=TASTA_IMPLICITA,
                         help="tasta care afișează/ascunde ceasul (implicit F9)")
+    parser.add_argument("--tara", default=None,
+                        help="codul țării din 2 litere (implicit: regiunea din Windows)")
     args = parser.parse_args()
 
     if sys.platform != "win32":
@@ -427,9 +610,16 @@ def main():
                      f"Altfel, pornește cu altă tastă, de ex.: --tasta F8")
         return 1
 
+    tara = None
+    if ARATA_TARA:
+        cod, nume_windows = tara_din_windows()
+        if args.tara:
+            cod, nume_windows = args.tara.strip().upper(), None
+        tara = tara_de_afisat(cod, nume_windows)
+
     sincronizare = SincronizareOra()
     radacina = tk.Tk()
-    CeasMare(radacina, sincronizare, coada, nume_tasta, cerere_iesire)
+    CeasMare(radacina, sincronizare, coada, nume_tasta, cerere_iesire, tara)
     try:
         radacina.mainloop()
     finally:

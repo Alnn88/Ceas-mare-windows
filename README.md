@@ -55,5 +55,13 @@ diferite). Pe parcursul orei, cifrele trec treptat, secundă cu secundă, spre c
 orei următoare, așa că la fix ora începe exact cu culoarea ei. Pentru o culoare fixă,
 pune `CULORI_DINAMICE = False` în `ceas.py`.
 
+**Țara:** sub dată apare numele țării în care ești, în română, colorat în culorile
+steagului național (de ex. ROMÂNIA în albastru, galben și roșu). Țara se ia din setarea
+Windows *Setări → Oră și limbă → Limbă și regiune → Țară sau regiune*, fără internet.
+Culorile steagului rămân mereu aceleași, nu se schimbă cu ora; culorile prea închise
+(negru, bleumarin) sunt puțin deschise ca să se vadă pe fundalul negru. Pentru o țară
+care nu e în listă, numele apare în gri. Altă țară decât cea din Windows:
+`CeasMare.exe --tara IT`. Ca să nu apară deloc, pune `ARATA_TARA = False` în `ceas.py`.
+
 Culorile, serverele de timp și intervalul de sincronizare se pot schimba în partea de
 sus a fișierului `ceas.py` (secțiunea *Setări*).
