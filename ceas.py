@@ -26,6 +26,7 @@ import urllib.request
 # ----------------------------------------------------------------------------
 # Setări
 # ----------------------------------------------------------------------------
+VERSIUNE = "1.2"
 TASTA_IMPLICITA = "F9"
 FORMAT_24H = True  # True: ora 00..23 (plus AM/PM); False: ora 01..12 (plus AM/PM)
 INTERVAL_SINCRONIZARE = 10 * 60  # secunde între sincronizări cu internetul
@@ -203,8 +204,9 @@ class TastaGlobala(threading.Thread):
 # Fereastra ceasului
 # ----------------------------------------------------------------------------
 class CeasMare:
-    def __init__(self, radacina, sincronizare, coada, nume_tasta):
+    def __init__(self, radacina, sincronizare, coada, nume_tasta, cerere_iesire=None):
         self.r = radacina
+        self.cerere_iesire = cerere_iesire  # funcție: True dacă altă instanță ne cere să ieșim
         self.sinc = sincronizare
         self.coada = coada
         self.nume_tasta = nume_tasta
@@ -298,7 +300,8 @@ class CeasMare:
 
     def _text_stare(self):
         sursa, ultima, decalaj = self.sinc.stare()
-        indicatii = f"{self.nume_tasta} / Esc = ascunde   •   Ctrl+{self.nume_tasta} = închide"
+        indicatii = (f"{self.nume_tasta} / Esc = ascunde   •   Ctrl+{self.nume_tasta} = închide"
+                     f"   •   v{VERSIUNE}")
         if ultima is None:
             return f"Se sincronizează cu internetul… (ora PC-ului)   •   {indicatii}"
         minute = int((time.monotonic() - ultima) // 60)
@@ -318,6 +321,9 @@ class CeasMare:
                     return
         except queue.Empty:
             pass
+        if self.cerere_iesire is not None and self.cerere_iesire():
+            self.r.destroy()  # a pornit o instanță nouă (de ex. o versiune mai nouă)
+            return
         self.r.after(50, self._citeste_coada)
 
 
@@ -342,12 +348,31 @@ def main():
 
     import ctypes
 
-    # O singură instanță pornită
+    # O singură instanță: dacă rulează deja una (de ex. o versiune mai veche),
+    # îi cerem să se închidă și îi luăm locul.
+    from ctypes import wintypes
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    k32.CreateMutexW(None, False, "CeasMare_instanta_unica")
-    if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
-        mesaj_eroare("Ceasul rulează deja. Apasă tasta setată ca să-l afișezi.")
-        return 0
+    k32.CreateMutexW.restype = wintypes.HANDLE
+    k32.CreateEventW.restype = wintypes.HANDLE
+    k32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    k32.WaitForSingleObject.restype = wintypes.DWORD
+    k32.SetEvent.argtypes = [wintypes.HANDLE]
+    k32.ResetEvent.argtypes = [wintypes.HANDLE]
+
+    mutex = k32.CreateMutexW(None, True, "CeasMare_instanta_unica_v2")
+    exista_deja = ctypes.get_last_error() == 183  # ERROR_ALREADY_EXISTS
+    eveniment_iesire = k32.CreateEventW(None, True, False, "CeasMare_cerere_iesire")
+    if exista_deja:
+        k32.SetEvent(eveniment_iesire)
+        rezultat = k32.WaitForSingleObject(mutex, 10000)
+        k32.ResetEvent(eveniment_iesire)
+        if rezultat not in (0x0, 0x80):  # WAIT_OBJECT_0, WAIT_ABANDONED
+            mesaj_eroare("Ceasul rulează deja și nu s-a putut închide singur.\n"
+                         "Închide CeasMare.exe din Task Manager și pornește-l din nou.")
+            return 1
+
+    def cerere_iesire():
+        return k32.WaitForSingleObject(eveniment_iesire, 0) == 0
 
     # Ecran nețesut (fără scalare încețoșată pe monitoare 125%/150%)
     try:
@@ -370,17 +395,20 @@ def main():
     tasta.start()
     tasta.gata.wait(5)
     if tasta.eroare:
-        mesaj_eroare(f"Nu pot folosi tasta {nume_tasta}: {tasta.eroare}\n"
-                     f"Pornește cu altă tastă, de ex.: ceas.py --tasta F8")
+        mesaj_eroare(f"Nu pot folosi tasta {nume_tasta}: {tasta.eroare}\n\n"
+                     f"Dacă rulează încă o versiune mai veche a ceasului, închide "
+                     f"CeasMare.exe din Task Manager și pornește-l din nou.\n"
+                     f"Altfel, pornește cu altă tastă, de ex.: --tasta F8")
         return 1
 
     sincronizare = SincronizareOra()
     radacina = tk.Tk()
-    CeasMare(radacina, sincronizare, coada, nume_tasta)
+    CeasMare(radacina, sincronizare, coada, nume_tasta, cerere_iesire)
     try:
         radacina.mainloop()
     finally:
         tasta.opreste()
+        tasta.join(2)  # tasta trebuie eliberată înainte ca o instanță nouă să o ia
     return 0
 
 

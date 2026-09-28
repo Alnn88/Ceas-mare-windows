@@ -21,6 +21,11 @@ Se resincronizează la fiecare 10 minute. Dacă nu ai internet, folosește ora P
    Nu apare nicio fereastră – programul așteaptă tasta F9.
 3. (Opțional) rulează `adauga_la_pornire_windows.bat` ca să pornească automat cu Windows-ul.
 
+**Actualizare la o versiune nouă:** pornește noul `CeasMare.exe` – închide singur
+ceasul vechi (începând cu v1.2). Versiunea care rulează scrie jos pe ecranul ceasului.
+Dacă ai folosit scriptul de pornire automată, pune exe-ul nou în același folder
+(peste cel vechi), altfel la repornirea PC-ului pornește tot cel vechi.
+
 > Windows SmartScreen poate avertiza la prima pornire („Mai multe informații” → „Rulează oricum”),
 > pentru că exe-ul nu este semnat digital.
 
