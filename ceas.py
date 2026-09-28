@@ -12,6 +12,7 @@ Nu are nevoie de biblioteci externe (doar Python 3 standard).
 """
 
 import argparse
+import colorsys
 import datetime
 import email.utils
 import queue
@@ -26,7 +27,7 @@ import urllib.request
 # ----------------------------------------------------------------------------
 # Setări
 # ----------------------------------------------------------------------------
-VERSIUNE = "1.2"
+VERSIUNE = "1.3"
 TASTA_IMPLICITA = "F9"
 FORMAT_24H = True  # True: ora 00..23 (plus AM/PM); False: ora 01..12 (plus AM/PM)
 INTERVAL_SINCRONIZARE = 10 * 60  # secunde între sincronizări cu internetul
@@ -40,9 +41,29 @@ CULOARE_AMPM = "#4FC3F7"
 CULOARE_DATA = "#B0BEC5"
 CULOARE_STARE = "#546E7A"
 
+# Culori care se schimbă de la o oră la alta. Fiecare oră are culoarea ei; pe parcursul
+# orei, culoarea trece treptat spre culoarea orei următoare.
+CULORI_DINAMICE = True  # False: ora rămâne mereu CULOARE_ORA
+PAS_NUANTA = 105  # grade pe roata culorilor între două ore (7 × 15°: toate 24 orele au culori diferite)
+SATURATIE = 0.85
+LUMINOZITATE = 0.62
+
 ZILE = ["luni", "marți", "miercuri", "joi", "vineri", "sâmbătă", "duminică"]
 LUNI = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie", "iulie",
         "august", "septembrie", "octombrie", "noiembrie", "decembrie"]
+
+def culoare_pentru(t, luminozitate=LUMINOZITATE, saturatie=SATURATIE):
+    """Culoarea ceasului la momentul t (datetime).
+
+    La începutul orei H culoarea e cea a orei H; până la sfârșitul orei se
+    deplasează uniform pe roata culorilor până la culoarea orei H+1.
+    După 23:59:59 se ajunge exact la culoarea orei 00, deci nu există salturi.
+    """
+    progres = (t.minute * 60 + t.second + t.microsecond / 1e6) / 3600
+    nuanta = ((t.hour + progres) * PAS_NUANTA) % 360
+    r, g, b = colorsys.hls_to_rgb(nuanta / 360, luminozitate, saturatie)
+    return f"#{round(r * 255):02X}{round(g * 255):02X}{round(b * 255):02X}"
+
 
 # ----------------------------------------------------------------------------
 # Sincronizare oră de pe internet
@@ -292,6 +313,11 @@ class CeasMare:
         self.eticheta_ampm.config(text="AM" if t.hour < 12 else "PM")
         self.eticheta_data.config(
             text=f"{ZILE[t.weekday()]}, {t.day} {LUNI[t.month - 1]} {t.year}")
+        if CULORI_DINAMICE:
+            self.eticheta_ora.config(fg=culoare_pentru(t))
+            self.eticheta_ampm.config(fg=culoare_pentru(t))
+            # data: aceeași nuanță, mai stinsă, ca ora să rămână în prim-plan
+            self.eticheta_data.config(fg=culoare_pentru(t, luminozitate=0.75, saturatie=0.35))
         self.eticheta_stare.config(text=self._text_stare())
 
         # următoarea actualizare exact la schimbarea secundei

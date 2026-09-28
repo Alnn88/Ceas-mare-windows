@@ -50,5 +50,10 @@ program, apare un mesaj și poți alege alta.
 
 Pentru formatul de 12 ore (01–12), pune `FORMAT_24H = False` în `ceas.py`.
 
+**Culori care se schimbă cu ora:** fiecare oră din zi are culoarea ei (toate 24 sunt
+diferite). Pe parcursul orei, cifrele trec treptat, secundă cu secundă, spre culoarea
+orei următoare, așa că la fix ora începe exact cu culoarea ei. Pentru o culoare fixă,
+pune `CULORI_DINAMICE = False` în `ceas.py`.
+
 Culorile, serverele de timp și intervalul de sincronizare se pot schimba în partea de
 sus a fișierului `ceas.py` (secțiunea *Setări*).
