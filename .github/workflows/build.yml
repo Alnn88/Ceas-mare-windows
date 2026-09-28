@@ -1,0 +1,38 @@
+name: Construieste CeasMare.exe
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Instaleaza PyInstaller
+        run: pip install pyinstaller
+      - name: Construieste exe
+        run: pyinstaller --onefile --noconsole --name CeasMare ceas.py
+      - name: Pregateste pachetul
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pachet | Out-Null
+          Copy-Item dist/CeasMare.exe, adauga_la_pornire_windows.bat, README.md pachet/
+          Compress-Archive -Path pachet/* -DestinationPath CeasMare-windows.zip
+      - uses: actions/upload-artifact@v6
+        with:
+          name: CeasMare-windows
+          path: pachet/
+      - name: Publica versiunea (doar pentru tag-uri v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: CeasMare-windows.zip
