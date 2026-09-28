@@ -27,6 +27,7 @@ import urllib.request
 # Setări
 # ----------------------------------------------------------------------------
 TASTA_IMPLICITA = "F9"
+FORMAT_24H = True  # True: ora 00..23 (plus AM/PM); False: ora 01..12 (plus AM/PM)
 INTERVAL_SINCRONIZARE = 10 * 60  # secunde între sincronizări cu internetul
 INTERVAL_REINCERCARE = 30  # secunde, dacă nu a mers sincronizarea
 SERVERE_NTP = ["time.windows.com", "pool.ntp.org", "time.google.com", "time.cloudflare.com"]
@@ -284,8 +285,8 @@ class CeasMare:
 
         acum = self.sinc.acum()
         t = datetime.datetime.fromtimestamp(acum)
-        ora12 = t.hour % 12 or 12
-        self.eticheta_ora.config(text=f"{ora12:02d}:{t.minute:02d}:{t.second:02d}")
+        ora = t.hour if FORMAT_24H else (t.hour % 12 or 12)
+        self.eticheta_ora.config(text=f"{ora:02d}:{t.minute:02d}:{t.second:02d}")
         self.eticheta_ampm.config(text="AM" if t.hour < 12 else "PM")
         self.eticheta_data.config(
             text=f"{ZILE[t.weekday()]}, {t.day} {LUNI[t.month - 1]} {t.year}")
