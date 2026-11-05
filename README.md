@@ -65,3 +65,11 @@ care nu e în listă, numele apare în gri. Altă țară decât cea din Windows:
 
 Culorile, serverele de timp și intervalul de sincronizare se pot schimba în partea de
 sus a fișierului `ceas.py` (secțiunea *Setări*).
+
+---
+
+## PDF Atelier
+
+În folderul [`pdf/`](pdf/README.md) este și **PDF Atelier**, un program separat cu unelte
+PDF: unește, împarte, comprimă, PDF în Word / Excel / imagini, Office în PDF, numere de
+pagină, filigran, parolă. Exe-ul se descarcă din **Actions → Construieste PdfAtelier.exe**.

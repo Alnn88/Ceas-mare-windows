@@ -1,0 +1,47 @@
+name: Construieste PdfAtelier.exe
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["pdf/**", ".github/workflows/build-pdf.yml"]
+    tags: ["pdf-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Instaleaza bibliotecile
+        run: pip install pyinstaller -r pdf/requirements.txt
+      - name: Test rapid al operatiilor
+        working-directory: pdf
+        run: python test_operatii.py
+      - name: Construieste exe
+        working-directory: pdf
+        run: >
+          pyinstaller --onefile --noconsole --name PdfAtelier
+          --collect-all tkinterdnd2 --collect-all pdf2docx --collect-submodules pymupdf
+          --hidden-import win32com.client --hidden-import pythoncom
+          pdf_atelier.py
+      - name: Pregateste pachetul
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pachet | Out-Null
+          Copy-Item pdf/dist/PdfAtelier.exe, pdf/README.md pachet/
+          Compress-Archive -Path pachet/* -DestinationPath PdfAtelier-windows.zip
+      - uses: actions/upload-artifact@v6
+        with:
+          name: PdfAtelier-windows
+          path: pachet/
+      - name: Publica versiunea (doar pentru tag-uri pdf-v*)
+        if: startsWith(github.ref, 'refs/tags/pdf-v')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: PdfAtelier-windows.zip
